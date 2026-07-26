@@ -97,6 +97,7 @@ def services() -> list[Service]:
             type="loadbalancer",
             server_status={"http://192.0.2.20:8000": "UP"},
             used_by=(ROUTER,),
+            has_health_check=True,
         ),
         Service(
             name="api@internal",

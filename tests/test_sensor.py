@@ -149,6 +149,7 @@ async def test_backend_unhealthy(
             type="loadbalancer",
             server_status={"http://192.0.2.20:8000": "DOWN"},
             used_by=(),
+            has_health_check=True,
         )
     ]
     await setup_integration.runtime_data.async_refresh()
@@ -170,7 +171,7 @@ async def test_backend_unhealthy_unknown_without_health_checks(
             status="enabled",
             provider="internal",
             type=None,
-            server_status={},
+            server_status={"http://192.0.2.20:8000": "UP"},
             used_by=(),
         )
     ]
