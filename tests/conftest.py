@@ -16,6 +16,7 @@ from traefik import (
     SectionCounts,
     ServerInfo,
     Service,
+    TrafficStats,
 )
 
 from homeassistant.const import CONF_URL
@@ -24,6 +25,7 @@ from homeassistant.core import HomeAssistant
 from custom_components.traefik.const import (
     CONF_METRICS_URL,
     CONF_ROUTERS,
+    CONF_TRACK_ALL,
     CONF_VERIFY_SSL,
     DOMAIN,
 )
@@ -33,6 +35,7 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 URL = "http://192.0.2.10:8080"
 METRICS_URL = "http://192.0.2.10:8082"
 ROUTER = "example@file"
+HOSTNAME = "example.test"
 
 
 @pytest.fixture(autouse=True)
@@ -130,8 +133,28 @@ def metrics() -> Metrics:
             Certificate(
                 common_name="example.test",
                 not_after=datetime(2026, 4, 1, tzinfo=UTC),
+                sans=("example.test", "www.example.test"),
             ),
         ),
+        services={
+            "example@file": TrafficStats(
+                requests=200,
+                client_errors=8,
+                server_errors=2,
+                duration_total=50.0,
+                duration_count=200,
+            )
+        },
+        entrypoints={
+            "websecure": TrafficStats(
+                requests=200,
+                client_errors=8,
+                server_errors=2,
+                duration_total=50.0,
+                duration_count=200,
+            )
+        },
+        connections_by_entrypoint={"websecure": 8},
     )
 
 
@@ -165,7 +188,7 @@ def mock_client(
 
 @pytest.fixture
 def config_entry() -> MockConfigEntry:
-    """Return a configured entry tracking one router."""
+    """Return a configured entry tracking every router."""
     return MockConfigEntry(
         domain=DOMAIN,
         title="192.0.2.10:8080",
@@ -175,7 +198,7 @@ def config_entry() -> MockConfigEntry:
             CONF_METRICS_URL: METRICS_URL,
             CONF_VERIFY_SSL: True,
         },
-        options={CONF_ROUTERS: [ROUTER]},
+        options={CONF_TRACK_ALL: True, CONF_ROUTERS: []},
     )
 
 

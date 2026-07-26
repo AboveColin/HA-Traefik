@@ -23,10 +23,15 @@ TO_REDACT = {
     CONF_URL,
     CONF_USERNAME,
     "address",
+    "certificate",
     "common_name",
+    "hostname",
+    "hostnames",
     "metrics_url",
     "password",
     "rule",
+    "sans",
+    "servers",
     "url",
     "username",
 }
@@ -76,6 +81,11 @@ async def async_get_config_entry_diagnostics(
             "total": len(data.routers),
             "not_enabled": sum(1 for r in data.routers.values() if not r.enabled),
             "with_tls": sum(1 for r in data.routers.values() if r.tls),
+            # Hostnames themselves never leave the entity attributes; how many
+            # there are is still useful for telling a rule-parsing bug from an
+            # instance that genuinely routes on paths.
+            "with_a_hostname": sum(1 for r in data.routers.values() if r.hostnames),
+            "hostname_count": len(data.hostnames),
             "providers": sorted(
                 {r.provider for r in data.routers.values() if r.provider}
             ),
@@ -85,7 +95,8 @@ async def async_get_config_entry_diagnostics(
         "entry": {
             # Only the count. The option itself is a list of router names, and
             # those are hostnames in all but name.
-            "tracked_router_count": len(entry.options.get("routers", [])),
+            "track_all_routers": coordinator.track_all,
+            "tracked_router_count": len(coordinator.tracked_routers),
             "data": async_redact_data(dict(entry.data), TO_REDACT),
         },
         "version": data.server.version if data else None,
@@ -96,6 +107,8 @@ async def async_get_config_entry_diagnostics(
         "certificates": data.overview.certificates if data else None,
         "entrypoint_count": len(data.entrypoints) if data else None,
         "metrics_available": bool(data and data.metrics.open_connections is not None),
+        "services_with_metrics": len(data.metrics.services) if data else None,
+        "entrypoints_with_metrics": len(data.metrics.entrypoints) if data else None,
         "last_update_success": coordinator.last_update_success,
         "overview": overview,
         "routers": routers,

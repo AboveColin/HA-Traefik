@@ -30,7 +30,14 @@ from homeassistant.helpers.selector import (
     SelectSelectorMode,
 )
 
-from .const import CONF_METRICS_URL, CONF_ROUTERS, CONF_VERIFY_SSL, DOMAIN
+from .const import (
+    CONF_METRICS_URL,
+    CONF_ROUTERS,
+    CONF_TRACK_ALL,
+    CONF_VERIFY_SSL,
+    DEFAULT_TRACK_ALL,
+    DOMAIN,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -180,6 +187,11 @@ class TraefikOptionsFlow(OptionsFlow):
     ) -> ConfigFlowResult:
         """Show the router picker."""
         if user_input is not None:
+            # The picker is meaningless while everything is tracked, and a
+            # stale selection left behind would silently take effect the
+            # moment the switch is turned off again.
+            if user_input.get(CONF_TRACK_ALL):
+                user_input = {**user_input, CONF_ROUTERS: []}
             return self.async_create_entry(data=user_input)
 
         # Importing here keeps the platform-independent flow module free of a
@@ -201,6 +213,12 @@ class TraefikOptionsFlow(OptionsFlow):
             step_id="init",
             data_schema=vol.Schema(
                 {
+                    vol.Required(
+                        CONF_TRACK_ALL,
+                        default=self.config_entry.options.get(
+                            CONF_TRACK_ALL, DEFAULT_TRACK_ALL
+                        ),
+                    ): bool,
                     vol.Optional(CONF_ROUTERS, default=selected): SelectSelector(
                         SelectSelectorConfig(
                             options=choices,

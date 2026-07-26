@@ -16,7 +16,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .coordinator import TraefikConfigEntry, TraefikCoordinator, TraefikData
-from .entity import TraefikEntity, TraefikRouterEntity
+from .entity import TraefikEntity, TraefikRouterEntity, async_add_router_entities
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -30,7 +30,7 @@ class TraefikBinarySensorDescription(BinarySensorEntityDescription):
 class TraefikRouterBinarySensorDescription(BinarySensorEntityDescription):
     """Describes a router-level binary sensor."""
 
-    value_fn: Callable[[Router], bool | None]
+    value_fn: Callable[[Router, TraefikData], bool | None]
 
 
 def _configuration_problem(data: TraefikData) -> bool:
@@ -82,12 +82,28 @@ INSTANCE_BINARY_SENSORS: tuple[TraefikBinarySensorDescription, ...] = (
     ),
 )
 
+def _router_backend_unhealthy(router: Router, data: TraefikData) -> bool | None:
+    """Return whether this route's own backend is down.
+
+    Same caveat as the instance-wide sensor: without a health check on the
+    service Traefik has no opinion, and neither should this.
+    """
+    service = data.service_for(router)
+    return service.all_servers_up is False if service else None
+
+
 ROUTER_BINARY_SENSORS: tuple[TraefikRouterBinarySensorDescription, ...] = (
     TraefikRouterBinarySensorDescription(
         key="problem",
         translation_key="router_problem",
         device_class=BinarySensorDeviceClass.PROBLEM,
-        value_fn=lambda r: None if not r.status else not r.enabled,
+        value_fn=lambda r, _: None if not r.status else not r.enabled,
+    ),
+    TraefikRouterBinarySensorDescription(
+        key="backend_unhealthy",
+        translation_key="backend_unhealthy",
+        device_class=BinarySensorDeviceClass.PROBLEM,
+        value_fn=_router_backend_unhealthy,
     ),
 )
 
@@ -99,16 +115,18 @@ async def async_setup_entry(
 ) -> None:
     """Set up binary sensors from a config entry."""
     coordinator = entry.runtime_data
-    entities: list[BinarySensorEntity] = [
+    async_add_entities(
         TraefikInstanceBinarySensor(coordinator, description)
         for description in INSTANCE_BINARY_SENSORS
-    ]
-    entities.extend(
-        TraefikRouterBinarySensor(coordinator, name, description)
-        for name in coordinator.tracked_routers
-        for description in ROUTER_BINARY_SENSORS
     )
-    async_add_entities(entities)
+    async_add_router_entities(
+        coordinator,
+        async_add_entities,
+        lambda name: [
+            TraefikRouterBinarySensor(coordinator, name, description)
+            for description in ROUTER_BINARY_SENSORS
+        ],
+    )
 
 
 class TraefikInstanceBinarySensor(TraefikEntity, BinarySensorEntity):
@@ -151,6 +169,6 @@ class TraefikRouterBinarySensor(TraefikRouterEntity, BinarySensorEntity):
     @property
     def is_on(self) -> bool | None:
         """Return the current state, or ``None`` if the router is gone."""
-        if (router := self.router) is None:
+        if (router := self.router) is None or self.coordinator.data is None:
             return None
-        return self.entity_description.value_fn(router)
+        return self.entity_description.value_fn(router, self.coordinator.data)

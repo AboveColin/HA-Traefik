@@ -41,10 +41,15 @@
   "options": {
     "step": {
       "init": {
-        "title": "Tracked routers",
-        "description": "Pick the routers you want their own device and entities for. Everything else is still counted by the instance sensors.",
+        "title": "Tracked routes",
+        "description": "By default every router Traefik serves gets its own device, named after the hostname it answers on. Turn that off to pick a shorter list by hand.",
         "data": {
+          "track_all_routers": "Track every router",
           "routers": "Routers"
+        },
+        "data_description": {
+          "track_all_routers": "New routers appear automatically, and removed ones go unavailable.",
+          "routers": "Only used when the switch above is off."
         }
       }
     },
@@ -54,27 +59,80 @@
   },
   "entity": {
     "sensor": {
-      "http_routers": { "name": "HTTP routers" },
-      "http_router_errors": { "name": "HTTP router errors" },
-      "http_services": { "name": "HTTP services" },
-      "http_service_errors": { "name": "HTTP service errors" },
-      "http_middlewares": { "name": "HTTP middlewares" },
-      "tcp_routers": { "name": "TCP routers" },
-      "udp_routers": { "name": "UDP routers" },
-      "certificates": { "name": "Certificates" },
-      "entrypoints": { "name": "Entry points" },
-      "version": { "name": "Version" },
-      "started": { "name": "Started" },
-      "open_connections": { "name": "Open connections" },
-      "config_reloads": { "name": "Configuration reloads" },
-      "last_reload": { "name": "Last configuration reload" },
-      "certificate_expiry": { "name": "Certificate expiry" },
-      "router_status": { "name": "Status" }
+      "http_routers": {
+        "name": "HTTP routers"
+      },
+      "http_router_errors": {
+        "name": "HTTP router errors"
+      },
+      "http_services": {
+        "name": "HTTP services"
+      },
+      "http_service_errors": {
+        "name": "HTTP service errors"
+      },
+      "http_middlewares": {
+        "name": "HTTP middlewares"
+      },
+      "tcp_routers": {
+        "name": "TCP routers"
+      },
+      "udp_routers": {
+        "name": "UDP routers"
+      },
+      "certificates": {
+        "name": "Certificates"
+      },
+      "entrypoints": {
+        "name": "Entry points"
+      },
+      "version": {
+        "name": "Version"
+      },
+      "started": {
+        "name": "Started"
+      },
+      "open_connections": {
+        "name": "Open connections"
+      },
+      "config_reloads": {
+        "name": "Configuration reloads"
+      },
+      "last_reload": {
+        "name": "Last configuration reload"
+      },
+      "certificate_expiry": {
+        "name": "Certificate expiry"
+      },
+      "router_status": {
+        "name": "Status"
+      },
+      "hostnames": {
+        "name": "Hostnames"
+      },
+      "requests": {
+        "name": "Requests"
+      },
+      "request_errors": {
+        "name": "Request errors"
+      },
+      "error_rate": {
+        "name": "Error rate"
+      },
+      "average_response_time": {
+        "name": "Average response time"
+      }
     },
     "binary_sensor": {
-      "configuration_problem": { "name": "Configuration problem" },
-      "backend_unhealthy": { "name": "Backend unhealthy" },
-      "router_problem": { "name": "Problem" }
+      "configuration_problem": {
+        "name": "Configuration problem"
+      },
+      "backend_unhealthy": {
+        "name": "Backend unhealthy"
+      },
+      "router_problem": {
+        "name": "Problem"
+      }
     }
   },
   "system_health": {

@@ -20,6 +20,7 @@ from custom_components.traefik.config_flow import _normalise_url
 from custom_components.traefik.const import (
     CONF_METRICS_URL,
     CONF_ROUTERS,
+    CONF_TRACK_ALL,
     CONF_VERIFY_SSL,
     DOMAIN,
 )
@@ -170,7 +171,7 @@ async def test_reauth(
 async def test_options_flow(
     hass: HomeAssistant, mock_client: AsyncMock, setup_integration: MockConfigEntry
 ) -> None:
-    """The options flow lists routers and saves the selection."""
+    """The options flow lists routers and saves a hand-picked selection."""
     result = await hass.config_entries.options.async_init(
         setup_integration.entry_id
     )
@@ -178,11 +179,25 @@ async def test_options_flow(
     assert result["step_id"] == "init"
 
     result = await hass.config_entries.options.async_configure(
-        result["flow_id"], {CONF_ROUTERS: [ROUTER]}
+        result["flow_id"], {CONF_TRACK_ALL: False, CONF_ROUTERS: [ROUTER]}
     )
     await hass.async_block_till_done()
     assert result["type"] is FlowResultType.CREATE_ENTRY
     assert setup_integration.options[CONF_ROUTERS] == [ROUTER]
+
+
+async def test_options_flow_track_all_clears_picker(
+    hass: HomeAssistant, mock_client: AsyncMock, setup_integration: MockConfigEntry
+) -> None:
+    """Leaving a selection behind would take effect again on the next untick."""
+    result = await hass.config_entries.options.async_init(
+        setup_integration.entry_id
+    )
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {CONF_TRACK_ALL: True, CONF_ROUTERS: [ROUTER]}
+    )
+    await hass.async_block_till_done()
+    assert setup_integration.options[CONF_ROUTERS] == []
 
 
 async def test_options_flow_keeps_missing_router(

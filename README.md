@@ -1,9 +1,10 @@
 # Traefik for Home Assistant
 
 Monitor a [Traefik](https://traefik.io/traefik/) reverse proxy from Home
-Assistant: how many routers and services it is serving, whether any of them
-failed to load, when the configuration last reloaded, and how long your
-certificates have left.
+Assistant. Every route becomes its own device, named after the hostname it
+serves, with its own traffic, error rate, response time, backend health and
+certificate expiry — so "something is broken" becomes "`git.example.com` is
+throwing 500s".
 
 Unaffiliated with Traefik Labs.
 
@@ -41,7 +42,12 @@ metrics:
   prometheus:
     entryPoint: metrics
     addEntryPointsLabels: true
+    addServicesLabels: true
 ```
+
+Both label options default to on. `addServicesLabels` is what makes per-route
+traffic possible: Traefik does not export per-router counters, so requests,
+errors and response times are read from the service each router forwards to.
 
 Then add the integration and fill in:
 
@@ -52,9 +58,10 @@ Then add the integration and fill in:
 | Prometheus metrics address | `http://192.0.2.10:8082` | Optional, and usually a *different* port from the API |
 | Verify the SSL certificate | on | Turn off only for a self-signed certificate on your own network |
 
-After setup, use the integration's **Configure** button to pick individual
-routers you want their own device and entities for. Every router is counted by
-the instance sensors regardless — this is for the handful you want to alert on.
+Every route is tracked by default, and routes added to Traefik later appear on
+the next poll without a reload. On a large instance that is a lot of entities;
+the integration's **Configure** button can turn tracking off and let you pick
+the handful of routes you actually want to alert on instead.
 
 ### If setup fails with "Access denied"
 
@@ -77,9 +84,14 @@ One device for the instance:
 | HTTP middlewares | Middlewares loaded (disabled by default) |
 | TCP routers | TCP routers (disabled by default) |
 | UDP routers | UDP routers (disabled by default) |
-| Certificates | Certificates Traefik is holding |
+| Certificates | Certificates Traefik is holding, with common name, SANs and expiry per certificate as attributes |
+| Hostnames | Distinct hostnames served, listed as an attribute |
+| Requests | Requests handled since start — needs metrics |
+| Request errors | 4xx and 5xx responses since start — needs metrics |
+| Error rate | Share of responses that were 4xx or 5xx — needs metrics |
+| Average response time | Mean response time since start — needs metrics |
 | Certificate expiry | When the soonest-expiring certificate stops being valid — needs metrics |
-| Open connections | Connections currently open — needs metrics |
+| Open connections | Connections currently open, broken down per entry point as an attribute — needs metrics |
 | Configuration reloads | Successful reloads since start (diagnostic) — needs metrics |
 | Last configuration reload | Timestamp of the last successful reload (diagnostic) — needs metrics |
 | Entry points | Number of entry points (diagnostic, disabled by default) |
@@ -88,12 +100,23 @@ One device for the instance:
 | Configuration problem | `Problem` — on when any section reports errors |
 | Backend unhealthy | `Problem` — on when an actively probed backend server is down |
 
-One device per tracked router:
+One device per tracked route, named after its hostname:
 
 | Entity | Description |
 |---|---|
-| Status | `enabled`, `disabled` or `warning`, with rule, service, provider, priority, entry points, middlewares and TLS as attributes |
+| Status | `enabled`, `disabled` or `warning`, with hostnames, rule, service, provider, priority, entry points, middlewares, TLS, backend servers and the covering certificate as attributes |
+| Requests | Requests this route's service handled — needs metrics |
+| Request errors | 4xx and 5xx responses (disabled by default) — needs metrics |
+| Error rate | Share of responses that were 4xx or 5xx (disabled by default) — needs metrics |
+| Average response time | Mean response time (disabled by default) — needs metrics |
+| Certificate expiry | Expiry of the certificate covering this hostname (disabled by default) — needs metrics |
 | Problem | `Problem` — on when the router is not enabled |
+| Backend unhealthy | `Problem` — on when this route's backend is down (see below) |
+
+A route matching on a path or header rather than a host keeps its configured
+router name, since there is no hostname to use. Certificates are matched
+tightest-first, so a host with its own certificate does not report the expiry
+of the wildcard that also happens to cover it.
 
 ### A note on "Backend unhealthy"
 
@@ -137,6 +160,27 @@ automation:
             {{ as_timestamp(states('sensor.traefik_certificate_expiry')) | timestamp_local }}
 ```
 
+Or catch a route that starts failing:
+
+```yaml
+automation:
+  - alias: "Route erroring"
+    triggers:
+      - trigger: numeric_state
+        entity_id: sensor.git_example_com_error_rate
+        above: 5
+        for: "00:05:00"
+    actions:
+      - action: notify.mobile_app_phone
+        data:
+          message: "git.example.com is at {{ states('sensor.git_example_com_error_rate') }}% errors"
+```
+
+Error rate and average response time are lifetime figures, not a moving
+window: they are computed from Traefik's own totals, which is all Prometheus
+exposes without a time-series database behind it. They move slowly on a
+long-running instance.
+
 ## Polling
 
 Four requests a minute, plus one for metrics if configured — all against a
@@ -156,8 +200,9 @@ address is set, or Prometheus metrics are not enabled in Traefik.
 The instance entities keep working.
 
 For a bug report, attach diagnostics from the integration's ⋮ menu. Router
-rules, certificate names, entry point addresses and your address are stripped
-out of that file — only counts survive.
+rules, hostnames, certificate names, backend server URLs, entry point
+addresses and your address are stripped out of that file — only counts
+survive.
 
 ## Credits
 

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from unittest.mock import AsyncMock
 
-from traefik import Metrics, SectionCounts, Service
+from traefik import Metrics, Router, SectionCounts, Service
 
 from homeassistant.const import STATE_OFF, STATE_ON, STATE_UNKNOWN
 from homeassistant.core import HomeAssistant
@@ -84,7 +84,7 @@ async def test_router_sensor(
     hass: HomeAssistant, setup_integration: MockConfigEntry
 ) -> None:
     """A tracked router gets a status sensor with its configuration attached."""
-    state = hass.states.get("sensor.example_file_status")
+    state = hass.states.get("sensor.example_test_status")
     assert state.state == "enabled"
     assert state.attributes["rule"] == "Host(`example.test`)"
     assert state.attributes["service"] == "example"
@@ -92,8 +92,10 @@ async def test_router_sensor(
     assert state.attributes["entry_points"] == "websecure"
     assert state.attributes["middlewares"] == "compress"
     assert state.attributes["tls"] is True
+    assert state.attributes["hostnames"] == ["example.test"]
+    assert state.attributes["router"] == "example@file"
 
-    assert hass.states.get("binary_sensor.example_file_problem").state == STATE_OFF
+    assert hass.states.get("binary_sensor.example_test_problem").state == STATE_OFF
 
 
 async def test_router_disappearing(
@@ -104,7 +106,7 @@ async def test_router_disappearing(
     await setup_integration.runtime_data.async_refresh()
     await hass.async_block_till_done()
 
-    assert hass.states.get("sensor.example_file_status").state == "unavailable"
+    assert hass.states.get("sensor.example_test_status").state == "unavailable"
 
 
 async def test_configuration_problem(
@@ -183,3 +185,61 @@ async def test_backend_unhealthy_unknown_without_health_checks(
         hass.states.get("binary_sensor.192_0_2_10_backend_unhealthy").state
         == STATE_UNKNOWN
     )
+
+
+async def test_router_traffic_sensors(
+    hass: HomeAssistant, setup_integration: MockConfigEntry
+) -> None:
+    """Per-route traffic is joined through the router's service."""
+    registry = er.async_get(hass)
+    assert hass.states.get("sensor.example_test_requests").state == "200"
+
+    # The rest are real but off by default, so enabling is what proves the join.
+    for entity_id in (
+        "sensor.example_test_request_errors",
+        "sensor.example_test_error_rate",
+        "sensor.example_test_average_response_time",
+        "sensor.example_test_certificate_expiry",
+    ):
+        entry = registry.async_get(entity_id)
+        assert entry is not None
+        assert entry.disabled_by is er.RegistryEntryDisabler.INTEGRATION
+
+
+async def test_instance_traffic_sensors(
+    hass: HomeAssistant, setup_integration: MockConfigEntry
+) -> None:
+    """Instance totals are added up across entrypoints."""
+    assert hass.states.get("sensor.192_0_2_10_hostnames").state == "1"
+    assert hass.states.get("sensor.192_0_2_10_requests").state == "200"
+    assert hass.states.get("sensor.192_0_2_10_request_errors").state == "10"
+    assert hass.states.get("sensor.192_0_2_10_error_rate").state == "5.0"
+    assert hass.states.get("sensor.192_0_2_10_average_response_time").state == "250.0"
+    assert hass.states.get("sensor.192_0_2_10_hostnames").attributes["hostnames"] == [
+        "example.test"
+    ]
+
+
+async def test_router_added_later(
+    hass: HomeAssistant, mock_client: AsyncMock, setup_integration: MockConfigEntry
+) -> None:
+    """A host deployed after setup appears on the next poll, without a reload."""
+    existing = mock_client.list_routers.return_value[0]
+    mock_client.list_routers.return_value = [
+        existing,
+        Router(
+            name="new@file",
+            rule="Host(`new.test`)",
+            service="new",
+            status="enabled",
+            provider="file",
+            priority=1,
+            entry_points=("websecure",),
+            middlewares=(),
+            tls=True,
+        ),
+    ]
+    await setup_integration.runtime_data.async_refresh()
+    await hass.async_block_till_done()
+
+    assert hass.states.get("sensor.new_test_status").state == "enabled"

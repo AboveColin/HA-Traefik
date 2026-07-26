@@ -58,6 +58,7 @@ async def test_diagnostics_still_useful(
     assert result["metrics_available"] is True
     assert result["entrypoint_count"] == 2
     assert result["last_update_success"] is True
+    assert result["entry"]["track_all_routers"] is True
     assert result["entry"]["tracked_router_count"] == 1
     assert result["overview"]["http_routers"] == {
         "total": 8,
@@ -69,6 +70,8 @@ async def test_diagnostics_still_useful(
         "not_enabled": 0,
         "with_tls": 1,
         "providers": ["file"],
+        "with_a_hostname": 1,
+        "hostname_count": 1,
     }
     assert result["services"] == {
         "total": 2,

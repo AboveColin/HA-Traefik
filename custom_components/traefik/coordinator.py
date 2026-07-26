@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 import logging
 
 from traefik import (
+    Certificate,
     EntryPoint,
     Metrics,
     Overview,
@@ -16,6 +17,7 @@ from traefik import (
     TraefikAuthenticationError,
     TraefikClient,
     TraefikError,
+    TrafficStats,
 )
 
 from homeassistant.config_entries import ConfigEntry
@@ -23,7 +25,13 @@ from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
-from .const import CONF_ROUTERS, DEFAULT_SCAN_INTERVAL, DOMAIN
+from .const import (
+    CONF_ROUTERS,
+    CONF_TRACK_ALL,
+    DEFAULT_SCAN_INTERVAL,
+    DEFAULT_TRACK_ALL,
+    DOMAIN,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -40,6 +48,41 @@ class TraefikData:
     services: dict[str, Service] = field(default_factory=dict)
     entrypoints: tuple[EntryPoint, ...] = ()
     metrics: Metrics = field(default_factory=Metrics)
+
+    def service_for(self, router: Router) -> Service | None:
+        """Return the service a router forwards to.
+
+        A router names its service without a provider suffix when both live in
+        the same provider (``foo``), but the services list is keyed with it
+        (``foo@file``), so the bare name has to be qualified before lookup.
+        """
+        if not router.service:
+            return None
+        if (service := self.services.get(router.service)) is not None:
+            return service
+        if router.provider:
+            return self.services.get(f"{router.service}@{router.provider}")
+        return None
+
+    def traffic_for(self, router: Router) -> TrafficStats | None:
+        """Return the traffic counters for a router's service, if metrics exist."""
+        if (service := self.service_for(router)) is None:
+            return None
+        return self.metrics.services.get(service.name)
+
+    def certificate_for(self, router: Router) -> Certificate | None:
+        """Return the certificate serving a router's first hostname."""
+        hostnames = router.hostnames
+        if not hostnames:
+            return None
+        return self.metrics.certificate_for(hostnames[0])
+
+    @property
+    def hostnames(self) -> tuple[str, ...]:
+        """Every distinct hostname served, sorted."""
+        return tuple(
+            sorted({host for router in self.routers.values() for host in router.hostnames})
+        )
 
 
 class TraefikCoordinator(DataUpdateCoordinator[TraefikData]):
@@ -65,8 +108,19 @@ class TraefikCoordinator(DataUpdateCoordinator[TraefikData]):
         self._entrypoints: tuple[EntryPoint, ...] = ()
 
     @property
+    def track_all(self) -> bool:
+        """Whether every router gets its own device."""
+        return bool(self.config_entry.options.get(CONF_TRACK_ALL, DEFAULT_TRACK_ALL))
+
+    @property
     def tracked_routers(self) -> list[str]:
-        """Return the router names the user chose to track."""
+        """Return the router names that should have entities.
+
+        With ``track_all`` on this follows the live configuration, so a host
+        added to Traefik shows up on the next poll without a reload.
+        """
+        if self.track_all:
+            return sorted(self.data.routers) if self.data else []
         return list(self.config_entry.options.get(CONF_ROUTERS, []))
 
     async def _async_update_data(self) -> TraefikData:

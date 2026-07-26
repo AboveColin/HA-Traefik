@@ -10,7 +10,7 @@ from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr
 
-from custom_components.traefik.const import CONF_ROUTERS, DOMAIN
+from custom_components.traefik.const import CONF_ROUTERS, CONF_TRACK_ALL, DOMAIN
 
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
@@ -104,13 +104,13 @@ async def test_options_change_reloads(
 ) -> None:
     """Changing the tracked routers rebuilds the entities."""
     hass.config_entries.async_update_entry(
-        setup_integration, options={CONF_ROUTERS: []}
+        setup_integration, options={CONF_TRACK_ALL: False, CONF_ROUTERS: []}
     )
     await hass.async_block_till_done()
 
     assert setup_integration.state is ConfigEntryState.LOADED
     # The registry entry survives an untrack, so the state is the restored
     # placeholder rather than nothing at all.
-    state = hass.states.get("sensor.example_file_status")
+    state = hass.states.get("sensor.example_test_status")
     assert state.state == "unavailable"
     assert state.attributes.get("restored") is True
