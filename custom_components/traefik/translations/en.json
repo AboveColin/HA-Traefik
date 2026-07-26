@@ -1,0 +1,85 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect to Traefik",
+        "description": "Enter the base address of the Traefik API. That is the host and port the dashboard is served on — the integration appends the API paths itself.",
+        "data": {
+          "url": "Address",
+          "username": "Username",
+          "password": "Password",
+          "metrics_url": "Prometheus metrics address",
+          "verify_ssl": "Verify SSL certificate"
+        },
+        "data_description": {
+          "url": "For example http://192.0.2.10:8080",
+          "username": "Only needed if the API is behind basic authentication.",
+          "password": "Only needed if the API is behind basic authentication.",
+          "metrics_url": "Optional. Traefik usually serves /metrics on its own entry point. Without it, the connection, reload and certificate expiry sensors stay unavailable."
+        }
+      },
+      "reauth_confirm": {
+        "title": "Reauthenticate Traefik",
+        "description": "Traefik at {url} is refusing the current credentials.",
+        "data": {
+          "username": "Username",
+          "password": "Password"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect",
+      "invalid_auth": "Access denied. The API may be behind basic authentication, or an IP allow list that does not include Home Assistant.",
+      "invalid_response": "Traefik answered, but not with an API response. Check that the API is enabled and that the address points at the API entry point.",
+      "unknown": "Unexpected error"
+    },
+    "abort": {
+      "already_configured": "This Traefik instance is already configured",
+      "reauth_successful": "Reauthentication was successful"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Tracked routers",
+        "description": "Pick the routers you want their own device and entities for. Everything else is still counted by the instance sensors.",
+        "data": {
+          "routers": "Routers"
+        }
+      }
+    },
+    "abort": {
+      "cannot_connect": "Could not reach Traefik to list its routers"
+    }
+  },
+  "entity": {
+    "sensor": {
+      "http_routers": { "name": "HTTP routers" },
+      "http_router_errors": { "name": "HTTP router errors" },
+      "http_services": { "name": "HTTP services" },
+      "http_service_errors": { "name": "HTTP service errors" },
+      "http_middlewares": { "name": "HTTP middlewares" },
+      "tcp_routers": { "name": "TCP routers" },
+      "udp_routers": { "name": "UDP routers" },
+      "certificates": { "name": "Certificates" },
+      "entrypoints": { "name": "Entry points" },
+      "version": { "name": "Version" },
+      "started": { "name": "Started" },
+      "open_connections": { "name": "Open connections" },
+      "config_reloads": { "name": "Configuration reloads" },
+      "last_reload": { "name": "Last configuration reload" },
+      "certificate_expiry": { "name": "Certificate expiry" },
+      "router_status": { "name": "Status" }
+    },
+    "binary_sensor": {
+      "configuration_problem": { "name": "Configuration problem" },
+      "backend_unhealthy": { "name": "Backend unhealthy" },
+      "router_problem": { "name": "Problem" }
+    }
+  },
+  "system_health": {
+    "info": {
+      "configured_instances": "Configured instances"
+    }
+  }
+}
