@@ -193,8 +193,9 @@ only change when Traefik restarts.
 on that address. Most often the address points at the web entry point serving
 your sites rather than the API entry point.
 
-**Certificate, connection and reload sensors are unavailable** — no metrics
-address is set, or Prometheus metrics are not enabled in Traefik.
+**Certificate, connection and reload sensors are unknown** — no metrics
+address is set, or Prometheus metrics are not enabled in Traefik. These
+entities stay available and report unknown, they do not go unavailable.
 
 **A tracked router went unavailable** — it dropped out of the configuration.
 The instance entities keep working.
