@@ -25,6 +25,11 @@ from homeassistant.const import CONF_PASSWORD, CONF_URL, CONF_USERNAME
 from homeassistant.core import callback
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.selector import (
+    TextSelector,
+    TextSelectorConfig,
+    TextSelectorType,
+)
+from homeassistant.helpers.selector import (
     SelectSelector,
     SelectSelectorConfig,
     SelectSelectorMode,
@@ -41,11 +46,15 @@ from .const import (
 
 _LOGGER = logging.getLogger(__name__)
 
+# A bare `str` renders the secret in clear text in the config form. TextSelector
+# with type PASSWORD makes the browser treat it as a password field.
+_SECRET = TextSelector(TextSelectorConfig(type=TextSelectorType.PASSWORD))
+
 STEP_USER_SCHEMA = vol.Schema(
     {
         vol.Required(CONF_URL): str,
         vol.Optional(CONF_USERNAME): str,
-        vol.Optional(CONF_PASSWORD): str,
+        vol.Optional(CONF_PASSWORD): _SECRET,
         vol.Optional(CONF_METRICS_URL): str,
         vol.Optional(CONF_VERIFY_SSL, default=True): bool,
     }
@@ -165,7 +174,7 @@ class TraefikConfigFlow(ConfigFlow, domain=DOMAIN):
             data_schema=vol.Schema(
                 {
                     vol.Optional(CONF_USERNAME): str,
-                    vol.Optional(CONF_PASSWORD): str,
+                    vol.Optional(CONF_PASSWORD): _SECRET,
                 }
             ),
             description_placeholders={"url": entry.data[CONF_URL]},
