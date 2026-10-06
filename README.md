@@ -209,6 +209,13 @@ survive.
 
 Uses the [`traefik`](https://github.com/AboveColin/traefik) client library.
 
+## Supporting the project
+
+This project is free and stays free. If it is useful to you, you can support its
+development through [GitHub Sponsors](https://github.com/sponsors/AboveColin).
+Sponsorship is voluntary and unlocks nothing: every feature, fix and security
+update ships in the public release.
+
 ## License
 
 MIT
