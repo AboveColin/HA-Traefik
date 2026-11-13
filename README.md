@@ -100,7 +100,9 @@ One device for the instance:
 | Configuration problem | `Problem`, on when any section reports errors |
 | Backend unhealthy | `Problem`, on when an actively probed backend server is down |
 
-One device per tracked route, named after its hostname:
+One device per tracked route. A simple host and path rule includes the path in
+the device name, for example `example.com/photos`. Existing installations can
+use **Recreate entity IDs** on the device to adopt the new name in entity IDs.
 
 | Entity | Description |
 |---|---|
