@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Callable, Iterable
 
 from traefik import Router
@@ -43,14 +44,30 @@ class TraefikEntity(CoordinatorEntity[TraefikCoordinator]):
         self._attr_device_info = instance_device_info(coordinator)
 
 
-def router_device_info(coordinator: TraefikCoordinator, name: str) -> DeviceInfo:
-    """Return the device describing one router.
+def router_display_name(router: Router | None, name: str) -> str:
+    """Include the path for simple Host && Path or PathPrefix rules."""
+    if not router or not router.hostnames:
+        return name
 
-    The device is named after the hostname it serves rather than the internal
-    router name, because ``git.example.com`` says what broke and
-    ``git-svc@file`` does not. Routers that match on something other than a
-    host keep their configured name.
-    """
+    hostname = router.hostnames[0]
+    parts = [part.strip() for part in router.rule.split("&&")]
+    if len(parts) != 2:
+        return hostname
+
+    host, path = sorted(parts)  # Host sorts before Path and PathPrefix.
+    host_pattern = r'Host\(\s*([`"])' + re.escape(hostname) + r'\1\s*\)'
+    if not re.fullmatch(host_pattern, host):
+        return hostname
+    match = re.fullmatch(
+        r'Path(?:Prefix)?\(\s*([`"])(/[A-Za-z0-9._~/-]*)\1\s*\)', path
+    )
+    if match and match[2] != "/":
+        return hostname + match[2]
+    return hostname
+
+
+def router_device_info(coordinator: TraefikCoordinator, name: str) -> DeviceInfo:
+    """Return the device describing one router."""
     router = coordinator.data.routers.get(name) if coordinator.data else None
     hostnames = router.hostnames if router else ()
     configuration_url = None
@@ -62,7 +79,7 @@ def router_device_info(coordinator: TraefikCoordinator, name: str) -> DeviceInfo
         entry_type=DeviceEntryType.SERVICE,
         manufacturer=MANUFACTURER,
         model="Route",
-        name=hostnames[0] if hostnames else name,
+        name=router_display_name(router, name),
         configuration_url=configuration_url,
         via_device=(DOMAIN, coordinator.config_entry.entry_id),
     )
